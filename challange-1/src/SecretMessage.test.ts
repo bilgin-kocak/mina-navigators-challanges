@@ -150,19 +150,21 @@ describe('SecretMessage', () => {
     await localDeploy();
 
     // Need to add it to the map first
-    const address = PrivateKey.random().toPublicKey();
+    const address = deployerAccount;
     const addressHash = Poseidon.hash(address.toFields());
     const eligibleMerkleMap = new MerkleMap();
     let eligibleMerkleMapWitness: MerkleMapWitness =
       eligibleMerkleMap.getWitness(addressHash);
     let merkleRoot = zkApp.eligibleAddressMerkleRoot.get();
-    console.log('merkleRoot:', merkleRoot.toString());
-    eligibleMerkleMap.set(addressHash, Field(1));
+
     const txnA = await Mina.transaction(deployerAccount, () => {
       zkApp.addAddress(address, eligibleMerkleMapWitness);
     });
     await txnA.prove();
     await txnA.sign([deployerKey]).send();
+
+    // Update the merkle map
+    eligibleMerkleMap.set(addressHash, Field(1));
 
     const message = Field(64);
     eligibleMerkleMapWitness = eligibleMerkleMap.getWitness(addressHash);
@@ -170,31 +172,31 @@ describe('SecretMessage', () => {
     const messageMerkleMap = new MerkleMap();
     const messageMerkleWitness = messageMerkleMap.getWitness(addressHash);
 
-    const numMessages = Number(zkApp.numDepositedMessages.get().toBigInt());
-    console.log('numMessages:', numMessages);
+    const numMessages = Number(
+      await zkApp.numDepositedMessages.get().toBigInt()
+    );
 
-    merkleRoot = zkApp.eligibleAddressMerkleRoot.get();
-    console.log('merkleRoot:', merkleRoot.toString());
+    merkleRoot = await zkApp.eligibleAddressMerkleRoot.get();
 
-    // const txnB = await Mina.transaction(deployerAccount, () => {
-    //   zkApp.depositMessage(
-    //     message,
-    //     eligibleMerkleMapWitness,
-    //     messageMerkleWitness
-    //   );
-    // });
-    // await txnB.prove();
-    // await txnB.sign([deployerKey]).send();
+    const txnB = await Mina.transaction(deployerAccount, () => {
+      zkApp.depositMessage(
+        message,
+        eligibleMerkleMapWitness,
+        messageMerkleWitness
+      );
+    });
+    await txnB.prove();
+    await txnB.sign([deployerKey]).send();
 
-    // messageMerkleMap.set(addressHash, message);
+    messageMerkleMap.set(addressHash, message);
 
-    // // Make sure we've now received 1 message and roots match
-    // let numDepositedMessages = Number(
-    //   zkApp.numDepositedMessages.get().toBigInt()
-    // ) as number;
-    // expect(numDepositedMessages).toEqual(1);
-    // expect(zkApp.eligibleAddressMerkleRoot.get()).toEqual(
-    //   eligibleMerkleMap.getRoot()
-    // );
+    // Make sure we've now received 1 message and roots match
+    let numDepositedMessages = Number(
+      await zkApp.numDepositedMessages.get().toBigInt()
+    ) as number;
+    expect(numDepositedMessages).toEqual(1);
+    expect(zkApp.eligibleAddressMerkleRoot.get()).toEqual(
+      eligibleMerkleMap.getRoot()
+    );
   });
 });

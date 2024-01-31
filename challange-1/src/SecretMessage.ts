@@ -135,7 +135,7 @@ export class SecretMessage extends SmartContract {
     // Update the number of deposited messages
     this.numDepositedMessages.set(numDepositedMessages.add(1));
 
-    this.emitEvent('message-deposited', numDepositedMessages.add(1));
+    // this.emitEvent('message-deposited', numDepositedMessages.add(1));
     // this.message.set(message);
   }
 
